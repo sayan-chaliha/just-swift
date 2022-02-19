@@ -25,18 +25,18 @@ jobs:
         path: .build/test.xml
         reporter: java-junit
     - name: Produce the coverage report
-        uses: insightsengineering/coverage-action@v2
-        with:
-          # Path to the Cobertura XML report.
-          path: .build/cobertura.xml
-          # Minimum total coverage, if you want to the
-          # workflow to enforce it as a standard.
-          # This has no effect if the `fail` arg is set to `false`.
-          threshold: 0.0
-          # Fail the workflow if the minimum code coverage
-          # reuqirements are not satisfied.
-          fail: true
-          # Publish the rendered output as a PR comment
-          publish: true
+      uses: insightsengineering/coverage-action@v2
+      with:
+        # Path to the Cobertura XML report.
+        path: .build/cobertura.xml
+        # Minimum total coverage, if you want to the
+        # workflow to enforce it as a standard.
+        # This has no effect if the `fail` arg is set to `false`.
+        threshold: 0.0
+        # Fail the workflow if the minimum code coverage
+        # reuqirements are not satisfied.
+        fail: true
+        # Publish the rendered output as a PR comment
+        publish: true
     - name: Lint
       run: swift run -- just lint
