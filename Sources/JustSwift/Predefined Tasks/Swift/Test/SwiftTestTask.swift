@@ -205,8 +205,6 @@ public struct SwiftTestTask: TaskProvider {
                     console.error("Reason: \(error.reason, .red)", indent: 8)
                 }
             }
-            console.error("\("Standard Output:", .yellow)", indent: 4)
-            console.error("\(output.standardOutput)", indent: 8)
             throw Error.testsFailed
         }
     }

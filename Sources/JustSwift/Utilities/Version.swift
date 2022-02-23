@@ -235,8 +235,8 @@ public actor Versions {
 
     public var current: Version {
         get async throws {
-            if let _current = _current {
-                return _current
+            if let current = _current {
+                return current
             }
 
             let prerelease = try await Project.git.commitsSinceLastTag.isEmpty ? "" : "-dev"
@@ -257,8 +257,8 @@ public actor Versions {
 
     public var next: Version {
         get async throws {
-            if let _next = _next {
-                return _next
+            if let next = _next {
+                return next
             }
 
             let next: Version
