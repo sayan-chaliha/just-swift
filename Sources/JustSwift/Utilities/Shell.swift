@@ -31,17 +31,22 @@ import Foundation
 
 public enum Shell {
 
+    public enum TerminationReason: Sendable {
+        case exit(Int)
+        case uncaughtSignal
+    }
+
     public struct Output: Error {
-        let terminationStatus: Int
-        let standardOutput: String
-        let standardError: String
+        public let terminationReason: TerminationReason
+        public let standardOutput: String
+        public let standardError: String
 
         init(
-            terminationStatus: Int = 0,
+            terminationReason: TerminationReason,
             standardOutput: String = "",
             standardError: String = ""
         ) {
-            self.terminationStatus = terminationStatus
+            self.terminationReason = terminationReason
             self.standardOutput = standardOutput
             self.standardError = standardError
         }
@@ -52,71 +57,82 @@ public enum Shell {
         let arguments: [String]
     }
 
-    static func execute(
+    public static func execute(
         command: Command,
         currentDirectoryPath: String = FileManager.default.currentDirectoryPath,
         environment: [String: String] = ProcessInfo.processInfo.environment,
         qualityOfService: QualityOfService = .default
-    ) -> Output {
-        return execute(script: command.asString)
+    ) async -> Output {
+        return await execute(script: command.asString)
     }
 
-    static func execute(
+    public static func execute(
         script: String,
         currentDirectoryPath: String = FileManager.default.currentDirectoryPath,
         environment: [String: String] = ProcessInfo.processInfo.environment,
         qualityOfService: QualityOfService = .default
-    ) -> Output {
-        let executablePath = "/bin/bash"
-        let arguments = ["-c", script]
-        let outputQueue = DispatchQueue(label: "com.microsoft.just.shell.IO")
-        let standardOutputPipe = Pipe()
-        let standardErrorPipe = Pipe()
-        let process = Process()
-        var standardOutputData = Data()
-        var standardErrorData = Data()
+    ) async -> Output {
+        await withCheckedContinuation { continuation in
+            let executablePath = "/bin/bash"
+            let arguments = ["-c", script]
+            let standardOutputPipe = Pipe()
+            let standardErrorPipe = Pipe()
+            let process = Process()
+            var standardOutput: String = ""
+            var standardError: String = ""
 
-        standardOutputPipe.fileHandleForReading.readabilityHandler = { handler in
-            outputQueue.async { standardOutputData.append(handler.availableData) }
-        }
+            standardOutputPipe.fileHandleForReading.readabilityHandler = { fileHandle in
+                if let string = String(data: fileHandle.availableData, encoding: .utf8) {
+                    standardOutput.append(string)
+                }
+            }
 
-        standardErrorPipe.fileHandleForReading.readabilityHandler = { handler in
-            outputQueue.async { standardErrorData.append(handler.availableData) }
-        }
+            standardErrorPipe.fileHandleForReading.readabilityHandler = { fileHandle in
+                if let string = String(data: fileHandle.availableData, encoding: .utf8) {
+                    standardError.append(string)
+                }
+            }
 
-        process.executableURL = URL(fileURLWithPath: executablePath)
-        process.arguments = arguments
-        process.qualityOfService = qualityOfService
-        process.currentDirectoryURL = URL(fileURLWithPath: currentDirectoryPath, isDirectory: true)
-        process.standardOutput = standardOutputPipe
-        process.standardError = standardErrorPipe
-
-        do {
-            try process.run()
-        } catch {
-            return .init(
-                terminationStatus: Int(process.terminationStatus),
-                standardOutput: "",
-                standardError: String(describing: error)
-            )
-        }
-        process.waitUntilExit()
-
-        return outputQueue.sync {
-            let standardOutput = String(data: standardOutputData, encoding: .utf8)?
-                .trimmingTrailingCharacters(in: .whitespacesAndNewlines) ?? ""
-            let standardError = String(data: standardErrorData, encoding: .utf8)?
-                .trimmingTrailingCharacters(in: .whitespaces) ?? ""
-
-            guard process.terminationStatus == 0 else {
-                return .init(
-                    terminationStatus: Int(process.terminationStatus),
-                    standardOutput: standardOutput,
-                    standardError: standardError
+            process.executableURL = URL(fileURLWithPath: executablePath)
+            process.arguments = arguments
+            process.qualityOfService = qualityOfService
+            process.currentDirectoryURL = URL(fileURLWithPath: currentDirectoryPath, isDirectory: true)
+            process.standardOutput = standardOutputPipe
+            process.standardError = standardErrorPipe
+            process.terminationHandler = { process in
+                continuation.resume(
+                    returning: .init(
+                        terminationReason: TerminationReason(process),
+                        standardOutput: standardOutput.trimmingTrailingCharacters(in: .whitespacesAndNewlines),
+                        standardError: standardError.trimmingTrailingCharacters(in: .whitespacesAndNewlines)
+                    )
                 )
             }
 
-            return .init(standardOutput: standardOutput, standardError: standardError)
+            do {
+                try process.run()
+            } catch {
+                continuation.resume(
+                    returning: .init(
+                        terminationReason: TerminationReason(process),
+                        standardOutput: "",
+                        standardError: String(describing: error))
+                )
+                return
+            }
+        }
+    }
+}
+
+private extension Shell.TerminationReason {
+    init(_ process: Process) {
+        switch process.terminationReason {
+        case .exit:
+            self = .exit(Int(process.terminationStatus))
+        case .uncaughtSignal:
+            self = .uncaughtSignal
+        @unknown default:
+            self = .exit(Int(process.terminationStatus))
         }
     }
 }

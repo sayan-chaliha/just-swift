@@ -64,14 +64,14 @@ public struct SwiftFormatTask: TaskProvider {
             console.info("config file: \(configFileURL)")
 
             let report = try await SwiftLint.run(.format(configurationFileURLs: [configFileURL]))
-            try SwiftFormatTask.process(report: report)
+            try await SwiftFormatTask.process(report: report)
         }
     }
 
-    private static func process(report: SwiftLint.Report) throws {
+    private static func process(report: SwiftLint.Report) async throws {
         guard !report.corrections.isEmpty else { return }
 
-        let changes = try Git.changes()
+        let changes = try await Git.changes()
         var gitAddFiles: [String] = []
 
         report.diagnostics.forEach { (file, diagnostics) in
@@ -102,6 +102,6 @@ public struct SwiftFormatTask: TaskProvider {
         }
 
         guard !gitAddFiles.isEmpty else { return }
-        try Git.add(filePaths: gitAddFiles)
+        try await Git.add(filePaths: gitAddFiles)
     }
 }

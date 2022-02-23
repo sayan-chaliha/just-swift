@@ -88,7 +88,11 @@ extension Just {
     public func execute() async throws {
         let parsedValues = try arguments.parse()
 
-        Project.optionRootDirectoryPath = parsedValues[dynamicMember: "root-directory"]
+        if let rootDirectory: String = parsedValues[dynamicMember: "root-directory"] {
+            Project.rootDirectory = URL(fileURLWithPath: rootDirectory)
+        } else if let rootDirectory = try? await Git.root() {
+            Project.rootDirectory = URL(fileURLWithPath: rootDirectory)
+        }
 
         try validateDirectories()
 

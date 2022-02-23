@@ -32,8 +32,8 @@ public struct VersionTask: TaskProvider {
 
     public func callAsFunction(_: inout ArgumentBuilder) -> TaskFunction {
         return { _ in
-            console.info("current version: \(Project.version.current.description, .white)")
-            console.info("   next version: \(Project.version.next.description, .green)")
+            console.info("current version: \(try await Project.version.current.description, .white)")
+            console.info("   next version: \(try await Project.version.next.description, .green)")
         }
     }
 }

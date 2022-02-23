@@ -126,7 +126,7 @@ public struct SwiftTestTask: TaskProvider {
                 "coverage-report-ignore-pattern",
                 type: String.self,
                 help: "File/directory patterns to ignore",
-                default: coverageReportIgnorePattern ?? "<none>")
+                default: coverageReportIgnorePattern)
             .option(
                 "coverage-report-path",
                 type: String.self,
@@ -149,7 +149,11 @@ public struct SwiftTestTask: TaskProvider {
                 options.insert(.enableCoverage)
             }
 
-            let output = Shell.execute(command: .testSwiftPackage(options: options))
+            let output = await Shell.execute(command: .testSwiftPackage(options: options))
+            guard case .exit = output.terminationReason else {
+                console.error("test execution failed: \(output.standardError, .red)")
+                throw Error.testsFailed
+            }
 
             try await SwiftTestTask.processTestReport(from: output,
                                                       format: testReportFormat,
@@ -215,12 +219,12 @@ public struct SwiftTestTask: TaskProvider {
     ) async throws {
         console.info("processing coverage information ...")
 
-        let (profdata, coveredBinary) = try findCoverageData()
+        let (profdata, coveredBinary) = try await findCoverageData()
 
         console.verbose("profdata: \(profdata)")
         console.verbose("covered binary: \(coveredBinary)")
 
-        let output = Shell.execute(
+        let output = await Shell.execute(
             command: .llvmCovExport(
                 instrumentationProfileURL: profdata,
                 outputFormat: .text,
@@ -230,7 +234,7 @@ public struct SwiftTestTask: TaskProvider {
             )
         )
 
-        guard output.terminationStatus == 0 else {
+        guard case let .exit(status) = output.terminationReason, status == 0 else {
             console.error("llvm-cov exited with error: \(output.standardError)")
             throw Error.coverageReportGenerationFailed
         }
@@ -257,8 +261,8 @@ public struct SwiftTestTask: TaskProvider {
         }
     }
 
-    private static func findCoverageData() throws -> (profdataURL: URL, xctestURL: URL) {
-        let output = Shell.execute(command: .testSwiftPackage(options: .showCodecovPath))
+    private static func findCoverageData() async throws -> (profdataURL: URL, xctestURL: URL) {
+        let output = await Shell.execute(command: .testSwiftPackage(options: .showCodecovPath))
         let codecovDirectory = URL(fileURLWithPath: output.standardOutput, isDirectory: false)
             .standardizedFileURL
             .deletingLastPathComponent()

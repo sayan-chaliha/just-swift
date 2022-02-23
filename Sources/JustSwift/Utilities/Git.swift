@@ -97,59 +97,67 @@ public struct Git {
     }
 
     public var currentBranch: String {
-        (try? Git.currentBranch()) ?? ""
+        get async throws {
+            try await Git.currentBranch()
+        }
     }
 
     public var lastTag: String? {
-        (try? Git.tags())?.last
+        get async throws {
+            try await Git.tags().last
+        }
     }
 
     public var commitsSinceLastTag: [Commit] {
-        (try? Git.commits(from: lastTag)) ?? []
+        get async throws {
+            try await Git.commits(from: lastTag)
+        }
     }
 
     public var changes: [Change] {
-        (try? Git.changes()) ?? []
+        get async throws {
+            try await Git.changes()
+        }
     }
 
-    public static func commits(from tag: String? = nil) throws -> [Commit] {
+    public static func commits(from tag: String? = nil) async throws -> [Commit] {
         let scissor = "-------------------- >8 ------------------------"
 
-        let output = try execute(command: .gitCommits(from: tag, scissor: scissor))
+        let output = try await execute(command: .gitCommits(from: tag, scissor: scissor))
         guard !output.isEmpty else { return [] }
 
         return output.components(separatedBy: scissor)
             .compactMap { Commit(fromString: $0) }
     }
 
-    public static func add(filePaths: [String]) throws {
-        try execute(command: .gitAdd(filePaths: filePaths))
+    public static func add(filePaths: [String]) async throws {
+        try await execute(command: .gitAdd(filePaths: filePaths))
     }
 
-    public static func currentBranch() throws -> String {
-        try execute(command: .gitCurrentBranch())
+    public static func currentBranch() async throws -> String {
+        try await execute(command: .gitCurrentBranch())
     }
 
-    public static func tags() throws -> [String] {
-        let output = try execute(command: .gitTags())
+    public static func tags() async throws -> [String] {
+        let output = try await execute(command: .gitTags())
         guard !output.isEmpty else { return [] }
         return output.components(separatedBy: .newlines)
     }
 
-    public static func root() throws -> String {
-        try execute(command: .gitRevParse(["--show-toplevel"]))
+    public static func root() async throws -> String {
+        try await execute(command: .gitRevParse(["--show-toplevel"]))
     }
 
-    public static func userName() throws -> String {
-        try execute(command: .gitConfig(get: "user.name"))
+    public static func userName() async throws -> String {
+        try await execute(command: .gitConfig(get: "user.name"))
     }
 
-    public static func userEmail() throws -> String {
-        try execute(command: .gitConfig(get: "user.email"))
+    public static func userEmail() async throws -> String {
+        try await execute(command: .gitConfig(get: "user.email"))
     }
 
-    public static func changes() throws -> [Change] {
-        let status = try execute(command: .gitStatus(options: .short))
+    public static func changes() async throws -> [Change] {
+        let status = try await execute(command: .gitStatus(options: .short))
         guard !status.isEmpty else { return [] }
 
         return status.components(separatedBy: .newlines)
@@ -215,10 +223,10 @@ public struct Git {
     }
 
     @discardableResult
-    private static func execute(command: Shell.Command) throws -> String {
-        let output = Shell.execute(command: command)
+    private static func execute(command: Shell.Command) async throws -> String {
+        let output = await Shell.execute(command: command)
 
-        guard output.terminationStatus == 0 else {
+        guard case let .exit(status) = output.terminationReason, status == 0 else {
             console.error("`\(command.description.green.bold)` failed: \(output.standardError)")
             throw Error.gitFailed
         }

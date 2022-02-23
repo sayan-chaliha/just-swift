@@ -36,8 +36,8 @@ public struct SwiftCleanTask: TaskProvider {
 
     public func callAsFunction(_: inout ArgumentBuilder) -> TaskFunction {
         return { _ in
-            let output = Shell.execute(command: .cleanSwiftPackage())
-            guard output.terminationStatus == 0 else {
+            let output = await Shell.execute(command: .cleanSwiftPackage())
+            guard case let .exit(status) = output.terminationReason, status == 0 else {
                 console.error("swift package clean failed: \(output.standardError)")
                 throw Error.cleanFailed
             }

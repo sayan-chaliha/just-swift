@@ -29,30 +29,6 @@
 
 import Foundation
 
-public struct Versions {
-    public static var current: Version = {
-        let prerelease = Project.git.commitsSinceLastTag.isEmpty ? "" : "-dev"
-        let version: String
-
-        if let lastTag = Project.git.lastTag {
-            version = "\(lastTag)\(prerelease)"
-        } else {
-            version = "0.0.1\(prerelease)"
-        }
-
-        return Version(from: version) ?? Version(0, 0, 1)
-    }()
-
-    public static var next: Version = {
-        switch Bump.what(Project.git.commitsSinceLastTag) {
-        case .major: return current.incrementingMajor()
-        case .minor: return current.incrementingMinor()
-        case .patch: return current.incrementingPatch()
-        case .none: return current.removingIdentifiers()
-        }
-    }()
-}
-
 /// A version according to the semantic versioning specification.
 public struct Version {
     /// The major version according to the semantic versioning standard.
@@ -178,7 +154,7 @@ extension Version {
     /// Initializes a version struct from a semantic version string.
     ///
     /// - Parameter from: Semantic version string.
-    public init?(from version: String) {
+    public init?(parsing version: String) {
         // See: https://semver.org/#is-there-a-suggested-regular-expression-regex-to-check-a-semver-string
         // swiftlint:disable:next line_length
         let pattern = #"(?<major>(0|[1-9]\d*))\.(?<minor>(0|[1-9]\d*))\.(?<patch>(0|[1-9]\d*))(?:-(?<prerelease>(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+(?<buildmetadata>[0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?"#
@@ -250,5 +226,51 @@ extension Version {
 
     public func removingIdentifiers() -> Version {
         Version(major, minor, patch)
+    }
+}
+
+public actor Versions {
+    private var _current: Version?
+    private var _next: Version?
+
+    public var current: Version {
+        get async throws {
+            if let _current = _current {
+                return _current
+            }
+
+            let prerelease = try await Project.git.commitsSinceLastTag.isEmpty ? "" : "-dev"
+            let version: String
+
+            if let lastTag = try await Project.git.lastTag {
+                version = "\(lastTag)\(prerelease)"
+            } else {
+                version = "0.0.1\(prerelease)"
+            }
+
+            let current = Version(parsing: version) ?? Version(0, 0, 1)
+            _current = current
+
+            return current
+        }
+    }
+
+    public var next: Version {
+        get async throws {
+            if let _next = _next {
+                return _next
+            }
+
+            let next: Version
+            switch Bump.what(try await Project.git.commitsSinceLastTag) {
+            case .major: next = try await current.incrementingMajor()
+            case .minor: next = try await current.incrementingMinor()
+            case .patch: next = try await current.incrementingPatch()
+            case .none: next = try await current.removingIdentifiers()
+            }
+            _next = next
+
+            return next
+        }
     }
 }

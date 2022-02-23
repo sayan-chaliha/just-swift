@@ -44,9 +44,10 @@ struct BuildTool {
             task("changelog", help: "Generate changelog based on commits", ChangelogTask())
             task("git:pre-commit", help: "Run pre-commit validation", "check")
             task("git:commit-msg", help: "Lint commit message", GitCommitMessageLint())
-
-            try Git.install(hook: .preCommit, task: "git:pre-commit")
-            try Git.install(hook: .commitMsg, task: "git:commit-msg")
+            task("git:install-hooks", help: "Install Git hooks") { _ in
+                try Git.install(hook: .preCommit, task: "git:pre-commit")
+                try Git.install(hook: .commitMsg, task: "git:commit-msg")
+            }
         }
 
         try await just.execute()

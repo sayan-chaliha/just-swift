@@ -122,6 +122,14 @@ extension SwiftLint {
 
         if let reporter = options.reporter, let reportFile = options.reportFile {
             let report = reporter.report(violations: violations)
+            let reportFileURL = URL(fileURLWithPath: reportFile)
+
+            if !FileManager.default.fileExists(atPath: reportFileURL.deletingLastPathComponent().path) {
+                try FileManager.default.createDirectory(at: reportFileURL.deletingLastPathComponent(),
+                                                        withIntermediateDirectories: true,
+                                                        attributes: nil)
+            }
+
             try report.write(toFile: reportFile, atomically: true, encoding: .utf8)
         }
 

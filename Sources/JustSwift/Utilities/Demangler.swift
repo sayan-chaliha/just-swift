@@ -31,7 +31,7 @@ import Foundation
 
 /// Encapsulates the `swift_demangle` symbol which is available on
 /// all platforms but not exposed as an API.
-enum Demangler {
+public enum Demangler {
     typealias SwiftDemangle = @convention(c) (_ mangledName: UnsafePointer<UInt8>?,
                                               _ mangledNameLength: Int,
                                               _ outputBuffer: UnsafeMutablePointer<UInt8>?,

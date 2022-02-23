@@ -79,7 +79,7 @@ public struct SwiftBuildTask: TaskProvider {
             let werror: Bool = argv.werror ?? werror
             let buildConfiguration: BuildConfiguration = argv.config ?? buildConfiguration
 
-            let output = Shell.execute(
+            let output = await Shell.execute(
                 command: .buildSwiftPackage(withConfiguration: buildConfiguration.asSwiftBuildConfiguration)
             )
 

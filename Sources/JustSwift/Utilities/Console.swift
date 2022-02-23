@@ -32,41 +32,128 @@ import Rainbow
 
 public let console = Console()
 
+// case `default` = 0
+// case bold = 1
+// case dim = 2
+// case italic = 3
+// case underline = 4
+// case blink = 5
+// case swap = 7
+// case strikethrough = 9
+
+// case black = 30
+// case red
+// case green
+// case yellow
+// case blue
+// case magenta
+// case cyan
+// case white
+// case `default` = 39
+// case lightBlack = 90
+// case lightRed
+// case lightGreen
+// case lightYellow
+// case lightBlue
+// case lightMagenta
+// case lightCyan
+// case lightWhite
+
+public struct ConsoleTextDecoration: OptionSet, Hashable {
+    public let rawValue: UInt8
+
+    public init(rawValue: UInt8) {
+        self.rawValue = rawValue
+    }
+
+    public static let `default` = ConsoleTextDecoration(rawValue: 1 << 0)
+    public static let bold = ConsoleTextDecoration(rawValue: 1 << 1)
+    public static let dim = ConsoleTextDecoration(rawValue: 1 << 2)
+    public static let italic = ConsoleTextDecoration(rawValue: 1 << 3)
+    public static let underline = ConsoleTextDecoration(rawValue: 1 << 4)
+    public static let blink = ConsoleTextDecoration(rawValue: 1 << 5)
+    public static let swap = ConsoleTextDecoration(rawValue: 1 << 6)
+    public static let strikethrough = ConsoleTextDecoration(rawValue: 1 << 7)
+}
+
+extension ConsoleTextDecoration: ModeCode {
+    private static let translations: [ConsoleTextDecoration: Style] = [
+        .default: .default,
+        .bold: .bold,
+        .blink: .blink,
+        .dim: .dim,
+        .italic: .italic,
+        .strikethrough: .strikethrough,
+        .swap: .swap,
+        .underline: .underline
+    ]
+
+    public var value: [UInt8] {
+        ConsoleTextDecoration.translations.flatMap { (option, style) -> [UInt8] in
+            if contains(option) { return style.value } else { return [] }
+        }
+    }
+}
+
+struct ConsoleTextFragment {
+    let output: String
+    let color: Color?
+    let decoration: ConsoleTextDecoration
+
+    init(
+        output: String,
+        color: Color? = nil,
+        decoration: ConsoleTextDecoration = []
+    ) {
+        self.output = output
+        self.color = color
+        self.decoration = decoration
+    }
+}
+
 public struct ConsoleLogInterpolation: StringInterpolationProtocol {
     public typealias StringLiteralType = String
 
-    var output: String = ""
+    var consoleTextFragments: [ConsoleTextFragment] = []
 
     public init(literalCapacity: Int, interpolationCount: Int) {
-        self.output.reserveCapacity(literalCapacity * 2)
+        self.consoleTextFragments.reserveCapacity(literalCapacity * 2)
     }
 
     public mutating func appendLiteral(_ literal: StringLiteralType) {
-        output += literal
+        consoleTextFragments.append(.init(output: literal))
     }
 
     public mutating func appendInterpolation(_ error: Error) {
-        output += String(describing: error).red.bold
+        consoleTextFragments.append(.init(output: String(describing: error), color: .red, decoration: .bold))
     }
 
-    public mutating func appendInterpolation(_ string: String, _ color: NamedColor? = nil) {
-        if let color = color {
-            output += string.applyingColor(color).applyingStyle(.bold)
-        } else {
-            output += string
-        }
+    public mutating func appendInterpolation(
+        _ string: String,
+        _ color: Color? = nil,
+        _ decoration: ConsoleTextDecoration = .bold
+    ) {
+        consoleTextFragments.append(.init(output: string, color: color, decoration: decoration))
     }
 
-    public mutating func appendInterpolation(_ url: URL) {
+    public mutating func appendInterpolation(
+        _ url: URL,
+        _ color: Color = .white,
+        _ decoration: ConsoleTextDecoration = .bold
+    ) {
         if url.isFileURL {
-            output += url.relativePath.white.bold
+            consoleTextFragments.append(.init(output: url.relativePath, color: color, decoration: decoration))
         } else {
-            output += String(describing: url).white.bold
+            consoleTextFragments.append(.init(output: String(describing: url), color: color, decoration: decoration))
         }
     }
 
-    public mutating func appendInterpolation(_ uint: UInt) {
-        output += String(describing: uint).white.bold
+    public mutating func appendInterpolation(
+        _ uint: UInt,
+        _ color: Color = .white,
+        _ decoration: ConsoleTextDecoration = .bold
+    ) {
+        consoleTextFragments.append(.init(output: String(describing: uint), color: color, decoration: decoration))
     }
 }
 
@@ -75,14 +162,14 @@ public struct ConsoleLogMessage: ExpressibleByStringLiteral, ExpressibleByString
     public typealias ExtendedGraphemeClusterLiteralType = String
     public typealias UnicodeScalarLiteralType = String
 
-    var output: [String] = []
+    var consoleTextFragments: [ConsoleTextFragment]
 
     public init(stringLiteral value: String) {
-        output.append(contentsOf: value.wrapped().components(separatedBy: .newlines))
+        consoleTextFragments = [.init(output: value)]
     }
 
     public init(stringInterpolation: ConsoleLogInterpolation) {
-        output.append(contentsOf: stringInterpolation.output.wrapped().components(separatedBy: .newlines))
+        consoleTextFragments = stringInterpolation.consoleTextFragments
     }
 }
 
@@ -101,28 +188,42 @@ public struct Console {
             .applyingStyle(.bold)
     }
 
-    public func info(_ message: @autoclosure () -> ConsoleLogMessage, indent: Int = 0) {
-        let message = message().output.map { timeSince + " I".cyan.bold + " \($0)".padded(by: indent) }
+    private func makeString(from message: ConsoleLogMessage, withPrefix prefix: String, indent: Int = 0) -> String {
+        let prefix = "\(timeSince) \(prefix) "
+        return message.consoleTextFragments.wrapped(to: size.width - prefix.count, wrappingIndent: indent)
+            .map { prefix + $0 }
             .joined(separator: "\n")
-        print(message)
     }
 
-    public func error(_ message: @autoclosure () -> ConsoleLogMessage, indent: Int = 0) {
-        let message = message().output.map { timeSince + " E".red.bold + " \($0)".padded(by: indent) }
-            .joined(separator: "\n")
-        print(message)
+    public func info(_ message: ConsoleLogMessage, indent: Int = 0) {
+        print(makeString(from: message, withPrefix: "I".cyan.bold, indent: indent))
     }
 
-    public func warn(_ message: @autoclosure () -> ConsoleLogMessage, indent: Int = 0) {
-        let message = message().output.map { timeSince + " W".yellow.bold + " \($0)".padded(by: indent) }
-            .joined(separator: "\n")
-        print(message)
+    public func error(_ message: ConsoleLogMessage, indent: Int = 0) {
+        print(makeString(from: message, withPrefix: "E".red.bold, indent: indent))
     }
 
-    public func verbose(_ message: @autoclosure () -> ConsoleLogMessage, indent: Int = 0) {
-        let message = message().output.map { timeSince + " V".bold + " \($0)".padded(by: indent) }
-            .joined(separator: "\n")
-        print(message)
+    public func warn(_ message: ConsoleLogMessage, indent: Int = 0) {
+        print(makeString(from: message, withPrefix: "W".yellow.bold, indent: indent))
+    }
+
+    public func verbose(_ message: ConsoleLogMessage, indent: Int = 0) {
+        print(makeString(from: message, withPrefix: "V".lightBlue.bold, indent: indent))
+    }
+}
+
+private extension Array where Element == ConsoleTextFragment {
+    func wrapped(to width: Int, wrappingIndent: Int = 0) -> [String] {
+        reduce(into: "") { string, fragment in
+            var output = fragment.output
+            fragment.color.let { color in
+                output = output.applyingColor(color)
+            }
+            output = output.applyingCodes(fragment.decoration)
+            string += output
+        }
+        .split(separator: "\n")
+        .map { String($0) }
     }
 }
 

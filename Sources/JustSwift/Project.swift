@@ -30,15 +30,8 @@
 import Foundation
 
 public enum Project {
-    public static var rootDirectory: URL {
-        if let optionRootDirectory = optionRootDirectory {
-            return optionRootDirectory
-        } else if let gitRoot = try? Git.root() {
-            return URL(fileURLWithPath: gitRoot, isDirectory: true)
-        }
-
-        return URL(fileURLWithPath: FileManager.default.currentDirectoryPath, isDirectory: true)
-    }
+    public internal(set) static var rootDirectory: URL = URL(
+        fileURLWithPath: FileManager.default.currentDirectoryPath)
 
     public static var sourcesDirectory: URL {
         return rootDirectory.appendingPathComponent("Sources")
@@ -49,32 +42,5 @@ public enum Project {
     }
 
     public static let git = Git()
-    public static let version: (current: Version, next: Version) = (Versions.current, Versions.next)
-}
-
-extension Project {
-    private static var lock = DispatchQueue(label: "com.microsoft.just.Project", qos: .default, attributes: .concurrent)
-    private static var _optionRootDirectory: URL?
-
-    static var optionRootDirectory: URL? {
-        get {
-            lock.sync { _optionRootDirectory }
-        }
-        set {
-            lock.async(flags: .barrier) { _optionRootDirectory = newValue }
-        }
-    }
-
-    static var optionRootDirectoryPath: String? {
-        get {
-            optionRootDirectory?.path
-        }
-        set {
-            if let newValue = newValue {
-                optionRootDirectory = URL(fileURLWithPath: newValue, isDirectory: true).standardized
-            } else {
-                optionRootDirectory = nil
-            }
-        }
-    }
+    public static let version = Versions()
 }
