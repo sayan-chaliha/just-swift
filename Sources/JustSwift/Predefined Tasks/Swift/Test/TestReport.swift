@@ -29,7 +29,7 @@
 
 import Foundation
 
-public enum Test {
+public enum TestReport {
     public enum Result: String, Codable {
         case passed
         case failed
@@ -60,7 +60,7 @@ public enum Test {
     }
 }
 
-extension Test.Suite {
+extension TestReport.Suite {
     class Builder {
         enum Error: Swift.Error {
             case illegalArgument(String)
@@ -69,9 +69,9 @@ extension Test.Suite {
         private var name: String?
         private var startDate: Date?
         private var endDate: Date?
-        private var result: Test.Result?
-        private var testCases: [Test.Case] = []
-        private var testSuites: [Test.Suite] = []
+        private var result: TestReport.Result?
+        private var testCases: [TestReport.Case] = []
+        private var testSuites: [TestReport.Suite] = []
 
         @discardableResult
         func with(name: String) -> Self {
@@ -92,30 +92,30 @@ extension Test.Suite {
         }
 
         @discardableResult
-        func with(result: Test.Result) -> Self {
+        func with(result: TestReport.Result) -> Self {
             self.result = result
             return self
         }
 
         @discardableResult
-        func append(testCase: Test.Case) -> Self {
+        func append(testCase: TestReport.Case) -> Self {
             testCases.append(testCase)
             return self
         }
 
         @discardableResult
-        func append(testSuite: Test.Suite) -> Self {
+        func append(testSuite: TestReport.Suite) -> Self {
             testSuites.append(testSuite)
             return self
         }
 
-        func build() throws -> Test.Suite {
+        func build() throws -> TestReport.Suite {
             guard let name = name else { throw Error.illegalArgument("name") }
             guard let startDate = startDate else { throw Error.illegalArgument("startDate") }
             guard let endDate = endDate else { throw Error.illegalArgument("endDate") }
             guard let result = result else { throw Error.illegalArgument("result") }
 
-            return Test.Suite(
+            return TestReport.Suite(
                 name: name,
                 startDate: startDate,
                 endDate: endDate,
@@ -127,7 +127,7 @@ extension Test.Suite {
     }
 }
 
-extension Test.Suite {
+extension TestReport.Suite {
     enum Error: Swift.Error {
         case badFormat
         case badState
@@ -152,8 +152,8 @@ extension Test.Suite {
         dateFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss.SSS"
         dateFormatter.timeZone = TimeZone.current
 
-        var rootSuiteBuilder: Test.Suite.Builder?
-        var testSuiteBuilders = [Test.Suite.Builder]()
+        var rootSuiteBuilder: TestReport.Suite.Builder?
+        var testSuiteBuilders = [TestReport.Suite.Builder]()
 
         var testCaseOutput = [String]()
         var gatherTestCaseOutput = false
@@ -167,7 +167,7 @@ extension Test.Suite {
                     throw Error.badFormat
                 }
 
-                let builder = Test.Suite.Builder()
+                let builder = TestReport.Suite.Builder()
                 testSuiteBuilders.append(builder)
 
                 builder.with(name: String(line[suiteNameRange]))
@@ -177,7 +177,7 @@ extension Test.Suite {
             } else if let match = testSuiteEndRegex
                         .firstMatch(in: line, options: [], range: NSRange(0 ..< line.count)) {
                 guard let resultRange = Range(match.range(withName: "result"), in: line),
-                      let result = Test.Result(rawValue: String(line[resultRange])),
+                      let result = TestReport.Result(rawValue: String(line[resultRange])),
                       let endDateRange = Range(match.range(withName: "endDate"), in: line),
                       let endDate = dateFormatter.date(from: String(line[endDateRange])),
                       let suiteNameRange = Range(match.range(withName: "suiteName"), in: line)
@@ -202,7 +202,7 @@ extension Test.Suite {
                       let classRange = Range(match.range(withName: "class"), in: line),
                       let testRange = Range(match.range(withName: "test"), in: line),
                       let resultRange = Range(match.range(withName: "result"), in: line),
-                      let result = Test.Result(rawValue: String(line[resultRange])),
+                      let result = TestReport.Result(rawValue: String(line[resultRange])),
                       let durationRange = Range(match.range(withName: "duration"), in: line),
                       let duration = Double(String(line[durationRange]))
                 else {
@@ -216,13 +216,13 @@ extension Test.Suite {
                     gatherTestCaseOutput = false
                 }
 
-                let testCase = Test.Case(
+                let testCase = TestReport.Case(
                     module: String(line[moduleRange]),
                     class: String(line[classRange]),
                     test: String(line[testRange]),
                     duration: duration,
                     result: result,
-                    errors: testCaseOutput.compactMap { Test.Error(fromString: $0) }
+                    errors: testCaseOutput.compactMap { TestReport.Error(fromString: $0) }
                 )
 
                 testSuiteBuilder.append(testCase: testCase)
@@ -236,7 +236,7 @@ extension Test.Suite {
     }
 }
 
-extension Test.Error {
+extension TestReport.Error {
     public init?(fromString content: String) {
         let testCaseErrorPattern = #"^(?<file>.*):(?<line>.*): error: .* : (?<reason>.*)$"#
         guard let testCaseErrorRegex = try? NSRegularExpression(pattern: testCaseErrorPattern, options: []) else {
@@ -252,7 +252,7 @@ extension Test.Error {
             return nil
         }
 
-        self = Test.Error(
+        self = TestReport.Error(
             file: String(content[fileRange]),
             line: line,
             reason: String(content[reasonRange])
@@ -260,8 +260,8 @@ extension Test.Error {
     }
 }
 
-extension Test.Suite {
-    var failedTestCases: [Test.Case] {
+extension TestReport.Suite {
+    var failedTestCases: [TestReport.Case] {
         var failedTestCases = testCases.filter { testCase in
             if case .failed = testCase.result {
                 return true

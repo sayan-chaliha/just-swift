@@ -35,6 +35,14 @@ public struct SwiftLintTask: TaskProvider {
         case lintFailed
     }
 
+    enum Reporter: String, CaseIterable, ExpressibleByArgument {
+        case sarif
+
+        init?(_ string: String) {
+            self.init(rawValue: string)
+        }
+    }
+
     let werror: Bool
 
     public init(
@@ -49,7 +57,7 @@ public struct SwiftLintTask: TaskProvider {
         addOptions(to: &args)
 
         return { argv in
-            let reporter: SwiftLint.Reporter? = argv.reporter
+            let reporter: Reporter? = argv.reporter
             let reportFilePath: String? = argv["report-file"]
             let configFilePath: String? = argv.configuration
             let configFileURL: URL
@@ -68,14 +76,15 @@ public struct SwiftLintTask: TaskProvider {
             console.info("config file: \(configFileURL)")
             console.info("warnings \(!werror ? "not ": "")treated as errors")
 
-            let report = try await SwiftLint.run(
-                .lint(
-                    configurationFileURLs: [configFileURL],
-                    strict: werror,
-                    reporter: reporter,
-                    reportFile: reportFilePath)
-            )
+            let report = try await SwiftLint.run(.lint(configurationFileURLs: [configFileURL], strict: werror))
             try SwiftLintTask.process(report: report)
+
+            if let reporter = reporter, let reportFilePath = reportFilePath {
+                switch reporter {
+                case .sarif:
+                    try await SARIFReporter.write(report: report, toPath: reportFilePath)
+                }
+            }
 
             guard report.errors.isEmpty else { throw Error.lintFailed }
 
@@ -100,7 +109,7 @@ public struct SwiftLintTask: TaskProvider {
             .option(
                 "reporter",
                 alias: "r",
-                type: SwiftLint.Reporter.self,
+                type: Reporter.self,
                 help: "Format to write reports in; not using a reporter will disable report file generation")
             .option(
                 "report-file",

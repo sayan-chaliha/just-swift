@@ -48,6 +48,23 @@ extension SwiftLint {
             let rule: String
         }
 
+        struct Rule: Codable {
+            enum Kind: String, Codable {
+                case lint
+                case idiomatic
+                case style
+                case metrics
+                case performance
+            }
+
+            let id: String
+            let name: String
+            let kind: Kind
+            let description: String
+            let helpURI: String
+        }
+
+        let rules: [SwiftLint.Report.Rule]
         let diagnostics: [URL: Set<Diagnostic>]
         let warnings: [Diagnostic]
         let errors: [Diagnostic]
@@ -56,24 +73,26 @@ extension SwiftLint {
 }
 
 extension SwiftLint.Report {
-    init(fromViolations violations: [SwiftLintFramework.StyleViolation]) {
+    init(fromViolations violations: [SwiftLintFramework.StyleViolation], of rules: [SwiftLintFramework.Rule]) {
         let diagnostics = violations.compactMap { Diagnostic(fromViolation: $0) }
             .reduce(into: [URL: Set<Diagnostic>]()) { result, current in
                 result[current.fileURL, default: Set()].update(with: current)
             }
 
+        self.rules = rules.map { SwiftLint.Report.Rule(fromRule: $0) }
         self.diagnostics = diagnostics
         self.warnings = diagnostics.flatMap(\.value).filter { $0.kind == .warning }
         self.errors = diagnostics.flatMap(\.value).filter { $0.kind == .error }
         self.corrections = []
     }
 
-    init(fromCorrections corrections: [SwiftLintFramework.Correction]) {
+    init(fromCorrections corrections: [SwiftLintFramework.Correction], for rules: [SwiftLintFramework.Rule]) {
         let diagnostics = corrections.compactMap { Diagnostic(fromCorrection: $0) }
             .reduce(into: [URL: Set<Diagnostic>]()) { result, current in
                 result[current.fileURL, default: Set()].update(with: current)
             }
 
+        self.rules = rules.map { SwiftLint.Report.Rule(fromRule: $0) }
         self.diagnostics = diagnostics
         self.warnings = []
         self.errors = []
@@ -134,6 +153,31 @@ extension SwiftLint.Report.Diagnostic.Kind {
             self = .warning
         case .error:
             self = .error
+        }
+    }
+}
+
+extension SwiftLint.Report.Rule {
+    init(fromRule rule: SwiftLintFramework.Rule) {
+        let description = type(of: rule).description
+        self.init(
+            id: description.identifier,
+            name: description.name,
+            kind: Kind(fromKind: description.kind),
+            description: description.description,
+            helpURI: "https://realm.github.io/SwiftLint/\(description.identifier).html"
+        )
+    }
+}
+
+extension SwiftLint.Report.Rule.Kind {
+    init(fromKind kind: RuleKind) {
+        switch kind {
+        case .style: self = .style
+        case .metrics: self = .metrics
+        case .idiomatic: self = .idiomatic
+        case .lint: self = .lint
+        case .performance: self = .performance
         }
     }
 }

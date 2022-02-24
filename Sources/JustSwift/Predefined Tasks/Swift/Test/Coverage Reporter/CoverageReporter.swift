@@ -30,6 +30,7 @@
 import Foundation
 
 public protocol CoverageReporter {
+    static var id: String { get }
     static func write(_: CoverageReport, to: URL, sourcesDirectory: URL) async throws
     static func write(_: CoverageReport, to: URL, sourcesDirectoryPath: String) async throws
     static func write(_: CoverageReport, toPath: String, sourcesDirectory: URL) async throws

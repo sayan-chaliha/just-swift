@@ -192,9 +192,9 @@ private extension Array where Element == ConsoleTextFragment {
             fragment.color.let { color in
                 output = output.applyingColor(color)
             }
-            output = output.applyingCodes(fragment.decoration)
-            string += output
+            string += output.applyingCodes(fragment.decoration)
         }
+        .wrapped(to: width, wrappingIndent: wrappingIndent)
         .split(separator: "\n")
         .map { String($0) }
     }

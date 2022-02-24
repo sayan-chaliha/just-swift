@@ -30,8 +30,10 @@
 import Foundation
 
 public struct JUnitReporter: TestReporter {
+    public static let id = "junit"
+
     public static func write(
-        _ suite: Test.Suite,
+        _ suite: TestReport.Suite,
         to url: URL,
         standardOutput: String,
         standardError: String
@@ -77,7 +79,7 @@ public struct JUnitReporter: TestReporter {
     }
 }
 
-private extension Test.Suite {
+private extension TestReport.Suite {
     var asXMLElement: XMLElement {
         let element = XMLElement(name: "testsuite")
         let dateFormatter = DateFormatter()
@@ -102,7 +104,7 @@ private extension Test.Suite {
     }
 }
 
-private extension Test.Case {
+private extension TestReport.Case {
     var asXMLElement: XMLElement {
         let element = XMLElement(name: "testcase")
         element.setAttributesWith([
@@ -117,7 +119,7 @@ private extension Test.Case {
     }
 }
 
-private extension Test.Error {
+private extension TestReport.Error {
     var asXMLElement: XMLElement {
         let element = XMLElement(name: "failure", stringValue: "at \(file):\(line)")
         element.setAttributesWith(["message": reason])

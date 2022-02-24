@@ -1,5 +1,5 @@
 //
-//  File: TestReporter.swift
+//  File: LintReporter.swift
 //
 //  MIT License
 //
@@ -23,28 +23,18 @@
 //  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 //  SOFTWARE.
 //
-//
-//  Created by Sayan Chaliha on 2022-02-19.
+//  Created by Sayan Chaliha on 23/02/22.
 //
 
 import Foundation
 
-public protocol TestReporter {
+public protocol LintReporter {
     static var id: String { get }
-    static func write(_: TestReport.Suite, to: URL, standardOutput: String, standardError: String) async throws
-    static func write(_: TestReport.Suite, toPath: String, standardOutput: String, standardError: String) async throws
+    static func write(report: SwiftLint.Report, to: URL) async throws
 }
 
-extension TestReporter {
-    public static func write(
-        _ suite: TestReport.Suite,
-        toPath path: String,
-        standardOutput: String,
-        standardError: String
-    ) async throws {
-        try await write(suite,
-                        to: URL(fileURLWithPath: path),
-                        standardOutput: standardOutput,
-                        standardError: standardError)
+extension LintReporter {
+    public static func write(report: SwiftLint.Report, toPath path: String) async throws {
+        try await write(report: report, to: URL(fileURLWithPath: path))
     }
 }

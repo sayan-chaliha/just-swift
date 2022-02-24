@@ -179,10 +179,10 @@ public struct SwiftTestTask: TaskProvider {
             throw Error.buildFailed
         }
 
-        let report: Test.Suite
+        let report: TestReport.Suite
         do {
             console.info("processing test report ...")
-            report = try Test.Suite(fromString: output.standardError)
+            report = try TestReport.Suite(fromString: output.standardError)
         } catch {
             console.error("test report generation failed: \(error)")
             throw Error.testReportGenerationFailed

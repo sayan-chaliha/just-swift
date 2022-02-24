@@ -133,7 +133,7 @@ extension SwiftLint {
             try report.write(toFile: reportFile, atomically: true, encoding: .utf8)
         }
 
-        return Report(fromViolations: violations)
+        return Report(fromViolations: violations, of: config.rules)
     }
 
     private static func autocorrect(
@@ -173,7 +173,7 @@ extension SwiftLint {
             return collectedLinter.correct(using: storage)
         }
 
-        return Report(fromCorrections: corrections)
+        return Report(fromCorrections: corrections, for: config.rules)
     }
 }
 

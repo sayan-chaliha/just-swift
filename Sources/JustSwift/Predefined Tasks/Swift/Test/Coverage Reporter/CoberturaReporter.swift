@@ -38,6 +38,8 @@ public struct CoberturaReporter: CoverageReporter {
     private static let version = "2.0.3"
     private static let dtdSystemID = "http://cobertura.sourceforge.net/xml/coverage-04.dtd"
 
+    public static let id = "cobertura"
+
     public static func write(_ report: CoverageReport, to url: URL, sourcesDirectory: URL) async throws {
         guard let data = report.data.first else {
             console.error("no coverage data in report")
