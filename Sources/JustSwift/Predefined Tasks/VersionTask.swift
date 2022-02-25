@@ -34,6 +34,23 @@ public struct VersionTask: TaskProvider {
         return { _ in
             console.info("current version: \(try await Project.version.current.description, .white)")
             console.info("   next version: \(try await Project.version.next.description, .green)")
+
+            let commits = try await Project.git.commitsSinceLastTag
+            if !commits.isEmpty {
+                console.info("commits considered for next version bump:")
+                commits.forEach { commit in
+                    console.info("Commit:")
+                    console.info("Title: \(commit.title, .green)", indent: 4)
+                    console.info(
+                        "Meta: \(commit.kind, .cyan)(\(commit.scope.isEmpty ? "<no scope>" : commit.scope, .white))",
+                        indent: 4
+                    )
+                    console.info("Breaking: \(commit.breaking)", indent: 4)
+                    console.info("Author: \(commit.author)", indent: 4)
+                    console.info("PR #\(commit.prNumber)", indent: 4)
+                    console.info("Bumps \(Bump.what([commit]), .blue)", indent: 4)
+                }
+            }
         }
     }
 }

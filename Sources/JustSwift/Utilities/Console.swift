@@ -128,6 +128,14 @@ public struct ConsoleLogInterpolation: StringInterpolationProtocol {
     ) {
         consoleTextFragments.append(.init(output: String(describing: uint), color: color, decoration: decoration))
     }
+
+    public mutating func appendInterpolation(
+        _ value: Any,
+        _ color: Color? = nil,
+        _ decoration: ConsoleTextDecoration = .bold
+    ) {
+        consoleTextFragments.append(.init(output: String(describing: value), color: color, decoration: decoration))
+    }
 }
 
 public struct ConsoleLogMessage: ExpressibleByStringLiteral, ExpressibleByStringInterpolation {
